@@ -19,8 +19,10 @@ def colorize_code(code):
     code_str = str(code)
     if code_str == "200":
         return f"{Colors.GREEN}{code_str}{Colors.RESET}"
-    elif code_str in ["403", "404", "400"]:
+    elif code_str in ["403", "404", "400", "401"]:
         return f"{Colors.RED}{code_str}{Colors.RESET}"
+    elif code_str.startswith("3"):
+        return f"{Colors.BLUE}{code_str}{Colors.RESET}"
     elif code_str in ["405"]:
         return f"{Colors.YELLOW}{code_str}{Colors.RESET}"
     elif code_str == "500":
@@ -31,12 +33,12 @@ def colorize_code(code):
 def print_banner():
     print(f"{Colors.YELLOW}")
     print("  Bypass-Four03 (Python Edition)")
-    print("                    By nazmul__ethi (Converted to Python)")
+    print("                    By nazmul__ethi (Converted & Updated)")
     print(f"{Colors.RESET}\n")
 
 if len(sys.argv) < 3:
     print(f"Usage: python {sys.argv[0]} [URL] [path]")
-    print(f"Example: python {sys.argv[0]} [https://example.com](https://example.com) admin")
+    print(f"Example: python {sys.argv[0]} https://example.com admin")
     sys.exit(1)
 
 target_url = sys.argv[1].rstrip('/')
@@ -44,6 +46,17 @@ path = sys.argv[2].strip('/')
 
 print_banner()
 print(f"Target: {target_url}/{path}\n")
+
+def handle_response(url, r, extra_info=""):
+    status = colorize_code(r.status_code)
+    size = len(r.content)
+    redirect_info = ""
+    
+    # If it's a redirect, grab the Location header
+    if 300 <= r.status_code < 400 and 'Location' in r.headers:
+        redirect_info = f" --> Redirects to: {Colors.CYAN}{r.headers['Location']}{Colors.RESET}"
+        
+    print(f"  --> {url} {extra_info} Response: [{status}] Size: {size}{redirect_info}")
 
 # 1. Path Fuzzing
 print(f"{Colors.VIOLET}=== PATH FUZZING ==={Colors.RESET}")
@@ -59,8 +72,8 @@ fuzz_paths = [
 
 for p in fuzz_paths:
     try:
-        r = requests.get(p, verify=False, allow_redirects=True, timeout=5)
-        print(f"  --> {p}  Response: [{colorize_code(r.status_code)}] Size: {len(r.content)}")
+        r = requests.get(p, verify=False, allow_redirects=False, timeout=5)
+        handle_response(p, r)
     except Exception as e:
         print(f"  --> {p}  Error: {e}")
 
@@ -78,8 +91,8 @@ for h in header_keys:
     for val in ip_values:
         headers = {h: val}
         try:
-            r = requests.get(base_target, headers=headers, verify=False, allow_redirects=True, timeout=5)
-            print(f"  --> {base_target} [{h}: {val}] Response: [{colorize_code(r.status_code)}] Size: {len(r.content)}")
+            r = requests.get(base_target, headers=headers, verify=False, allow_redirects=False, timeout=5)
+            handle_response(base_target, r, extra_info=f"[{h}: {val}]")
         except Exception as e:
             pass
 
@@ -92,8 +105,8 @@ special_headers = [
 ]
 for sh in special_headers:
     try:
-        r = requests.get(target_url, headers=sh, verify=False, allow_redirects=True, timeout=5)
-        print(f"  --> {target_url} [Headers: {sh}] Response: [{colorize_code(r.status_code)}] Size: {len(r.content)}")
+        r = requests.get(target_url, headers=sh, verify=False, allow_redirects=False, timeout=5)
+        handle_response(target_url, r, extra_info=f"[Headers: {sh}]")
     except Exception as e:
         pass
 
@@ -102,7 +115,7 @@ print(f"\n{Colors.VIOLET}=== HTTP METHOD FUZZING ==={Colors.RESET}")
 methods = ["PUT", "POST", "CONNECT", "TRACE", "PATCH", "HEAD"]
 for m in methods:
     try:
-        r = requests.request(m, base_target, verify=False, allow_redirects=True, timeout=5)
-        print(f"  --> {base_target} -X {m} Response: [{colorize_code(r.status_code)}] Size: {len(r.content)}")
+        r = requests.request(m, base_target, verify=False, allow_redirects=False, timeout=5)
+        handle_response(base_target, r, extra_info=f"-X {m}")
     except Exception as e:
         print(f"  --> {base_target} -X {m} Error: {e}")
